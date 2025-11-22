@@ -4,7 +4,7 @@ The Private, On-Device AI News Summarizer.
 
 Briefly reads, cleans, and summarizes news articles entirely on-device using the Gemma-3 model. No cloud APIs, no subscriptions, and no data egress.
 
-![Briefly App Screenshot](https://via.placeholder.com/200x400.png?text=Briefly+App+Screenshot)
+![Briefly App Screenshots](https://raw.githubusercontent.com/ayusrjn/briefly/refs/heads/main/assets/readme.png)
 
 Contents
 - Features
