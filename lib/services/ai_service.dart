@@ -1,70 +1,73 @@
 import 'package:cactus/cactus.dart';
 
 abstract class AIService {
+  Future<void> downloadModel(Function(double) onProgress);
+  Future<bool> isModelDownloaded();
   Future<String> summarize(String articleText);
 }
 
 class CactusAIService implements AIService {
-  final CactusLM _lm = CactusLM(enableToolFiltering: false); // Disable tools for pure text tasks
-  bool _isModelReady = false;
-  
-  // Using the Gemma 3 1 Billion Parameter model as it is efficient for mobile testing
-  static const String _modelSlug = "gemma3-1b-it-q4_k_m"; 
+  final CactusLM _lm = CactusLM(enableToolFiltering: false);
+  static const String _modelSlug = "gemma3-270m"; 
+  bool _isInitialized = false;
 
   @override
-  Future<String> summarize(String articleText) async {
-    try {
-      await _ensureModelLoaded();
-
-      final result = await _lm.generateCompletion(
-        messages: [
-          ChatMessage(
-            role: "user", 
-            content: "Summarize the following news article in a clear, professional executive brief. Use bullet points for key takeaways:\n\n$articleText"
-          ),
-        ],
-        params: CactusCompletionParams(
-          maxTokens: 512,
-          temperature: 0.7,
-          stopSequences: ["<end_of_turn>", "<|im_end|>"],
-        ),
-      );
-
-      if (!result.success) {
-        throw Exception("Generation failed: ${result.response}");
-      }
-
-      return result.response;
-    } catch (e) {
-      throw Exception("AI Error: $e");
-    }
+  Future<bool> isModelDownloaded() async {
+    final models = await _lm.getModels();
+    // Check if our specific model is marked as downloaded
+    return models.any((m) => m.slug == _modelSlug && m.isDownloaded);
   }
 
-  Future<void> _ensureModelLoaded() async {
-    if (_isModelReady) return;
-
-    // 1. Check/Download Model
-    // In a real app, you would expose this progress to the UI. 
-    // For now, we await it.
+  @override
+  Future<void> downloadModel(Function(double) onProgress) async {
+    print("Cactus: Starting download for $_modelSlug...");
+    
     await _lm.downloadModel(
       model: _modelSlug,
       downloadProcessCallback: (progress, status, isError) {
-        print("Cactus: $status ${(progress != null ? (progress * 100).toStringAsFixed(1) : '')}%");
+        if (progress != null) {
+          onProgress(progress);
+        }
       },
     );
 
-    // 2. Initialize
-    await _lm.initializeModel(
-      params: CactusInitParams(
-        model: _modelSlug,
-        contextSize: 2048, // Sufficient for summaries
+    // Initialize immediately after download
+    if (!_isInitialized) {
+      await _lm.initializeModel(
+        params: CactusInitParams(model: _modelSlug, contextSize: 2048),
+      );
+      _isInitialized = true;
+    }
+  }
+
+  @override
+  Future<String> summarize(String articleText) async {
+    if (!_isInitialized) {
+      // Fallback initialization if skipped (shouldn't happen with new flow)
+      await _lm.initializeModel(
+        params: CactusInitParams(model: _modelSlug, contextSize: 2048),
+      );
+      _isInitialized = true;
+    }
+
+    final result = await _lm.generateCompletion(
+      messages: [
+        ChatMessage(
+          role: "user", 
+          content: "Summarize the following news article in a clear, professional executive brief. Use bullet points for key takeaways:\n\n$articleText"
+        ),
+      ],
+      params: CactusCompletionParams(
+        maxTokens: 512,
+        temperature: 0.7,
+        stopSequences: ["<end_of_turn>", "<|im_end|>"],
       ),
     );
 
-    _isModelReady = true;
+    if (!result.success) throw Exception("Generation failed: ${result.response}");
+    return result.response;
   }
   
-  // Call this when app closes to free RAM
   void dispose() {
     _lm.unload();
   }

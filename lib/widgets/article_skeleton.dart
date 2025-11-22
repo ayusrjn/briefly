@@ -10,25 +10,15 @@ class ArticleSkeleton extends StatefulWidget {
 
 class _ArticleSkeletonState extends State<ArticleSkeleton> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    // Create a repeating "breathing" animation
+    // Slower animation (4 seconds) reduces GPU redraw frequency
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 4), 
     )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.3, end: 0.8).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
   }
 
   @override
@@ -43,63 +33,49 @@ class _ArticleSkeletonState extends State<ArticleSkeleton> with SingleTickerProv
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 1. The "AI Core" Animation
+          // 1. The Optimized "AI Core"
           AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Outer Purple Glow (Expands)
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFA855F7).withOpacity(_fadeAnimation.value * 0.5),
-                          blurRadius: 60 * _scaleAnimation.value,
-                          spreadRadius: 20 * _scaleAnimation.value,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Inner Indigo Core (Pulses)
-                  Container(
-                    width: 80 * _scaleAnimation.value,
-                    height: 80 * _scaleAnimation.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF6366F1).withOpacity(0.1),
-                      border: Border.all(
-                        color: const Color(0xFF6366F1).withOpacity(0.5),
-                        width: 2,
+              // We use a static container inside the builder but animate its parent
+              // This is lighter than re-calculating complex shadows every frame
+              return Transform.scale(
+                scale: 1.0 + (_controller.value * 0.1), // Subtle breathing (1.0 -> 1.1)
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF1E293B), // Solid dark core background
+                    
+                    // LOW COST SHADOW: Fixed radius, no dynamic blur calculation
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.3), 
+                        blurRadius: 20, // Reduced from 120. Much cheaper for GPU.
+                        spreadRadius: 2,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(_fadeAnimation.value),
-                          blurRadius: 30,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome, 
-                      color: Colors.white, 
-                      size: 32
+                    ],
+                    border: Border.all(
+                      color: const Color(0xFF6366F1).withOpacity(0.5),
+                      width: 2,
                     ),
                   ),
-                ],
+                  child: const Icon(
+                    Icons.auto_awesome, 
+                    color: Colors.white, 
+                    size: 32
+                  ),
+                ),
               );
             },
           ),
           
-          const SizedBox(height: 60),
+          const SizedBox(height: 40),
           
           // 2. Text Feedback
           Text(
-            "Thinking...",
+            "Analyzing...",
             style: GoogleFonts.outfit(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -109,7 +85,7 @@ class _ArticleSkeletonState extends State<ArticleSkeleton> with SingleTickerProv
           ),
           const SizedBox(height: 12),
           Text(
-            "Gemma-3 is reading & summarizing locally",
+            "Gemma-3 is summarizing locally",
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 14,
