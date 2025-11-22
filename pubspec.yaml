@@ -1,0 +1,37 @@
+name: briefly
+description: A minimal AI news summarizer.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Networking & Parsing
+  http: ^1.2.0
+  html: ^0.15.4
+
+  # Intent Handling (Share Sheet)
+  receive_sharing_intent: ^1.8.0 
+
+  # UI & State
+  flutter_markdown: ^0.6.14
+  provider: ^6.1.1
+  
+  # Styling
+  google_fonts: ^6.1.0
+  shimmer: ^3.0.0
+  
+  # Features
+  flutter_tts: ^4.0.2  # <--- This was missing
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
