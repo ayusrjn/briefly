@@ -14,7 +14,7 @@ dependencies:
   http: ^1.2.0
   html: ^0.15.4
 
-  # Intent Handling (Share Sheet)
+  # Intent Handling
   receive_sharing_intent: ^1.8.0 
 
   # UI & State
@@ -26,7 +26,13 @@ dependencies:
   shimmer: ^3.0.0
   
   # Features
-  flutter_tts: ^4.0.2  # <--- This was missing
+  flutter_tts: ^4.0.2
+  
+  # AI Engine (Cactus)
+  cactus:
+    git:
+      url: https://github.com/cactus-compute/cactus-flutter.git
+      ref: main
 
 dev_dependencies:
   flutter_test:
