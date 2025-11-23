@@ -95,7 +95,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                       Text(
                         isStartupLoading 
                           ? "Verifying neural engine..."
-                          : "We need to download the Gemma-3 model (~800MB) once. This allows Briefly to work 100% offline and privately.",
+                          : "We need to download the Gemma-3-270m INT8 Quantized model (~178MB) once. This allows Briefly to work 100% offline and privately.",
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontSize: 15,
