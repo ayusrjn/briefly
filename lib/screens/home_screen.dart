@@ -19,7 +19,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late StreamSubscription _intentSub;
-  final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _inputController = TextEditingController();
+  
+  // Toggle State: true = Link Mode, false = Text Mode
+  bool _isLinkMode = true; 
 
   @override
   void initState() {
@@ -30,47 +33,70 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _intentSub.cancel();
-    _urlController.dispose();
+    _inputController.dispose();
     super.dispose();
   }
 
   void _initShareListener() {
     final provider = Provider.of<SummaryProvider>(context, listen: false);
-    
-    // Listen while app is running
     _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((value) {
-      if (value.isNotEmpty) _processLink(value.first.path, provider);
+      if (value.isNotEmpty) _processIncomingShare(value.first.path, provider);
     }, onError: (err) => debugPrint("Intent Error: $err"));
 
-    // Check if app was opened via share
     ReceiveSharingIntent.instance.getInitialMedia().then((value) {
-      if (value.isNotEmpty) _processLink(value.first.path, provider);
+      if (value.isNotEmpty) _processIncomingShare(value.first.path, provider);
     });
   }
 
-  void _processLink(String link, SummaryProvider provider) {
-    if (link.startsWith('http')) {
-      setState(() {
-        _urlController.text = link;
-      });
-      provider.processUrl(link);
+  void _processIncomingShare(String content, SummaryProvider provider) {
+    // Auto-detect mode based on content
+    setState(() {
+      if (content.startsWith('http')) {
+        _isLinkMode = true;
+      } else {
+        _isLinkMode = false;
+      }
+      _inputController.text = content;
+    });
+    
+    // Auto-submit
+    if (_isLinkMode) {
+      provider.processUrl(content);
+    } else {
+      provider.processText(content);
     }
   }
 
   void _handleManualSubmit() {
-    final text = _urlController.text.trim();
-    if (text.isNotEmpty && text.startsWith('http')) {
-      FocusScope.of(context).unfocus();
-      context.read<SummaryProvider>().processUrl(text);
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+
+    FocusScope.of(context).unfocus();
+    final provider = context.read<SummaryProvider>();
+
+    if (_isLinkMode) {
+      if (text.startsWith('http')) {
+        provider.processUrl(text);
+      } else {
+        _showError("Please enter a valid URL starting with http");
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text("Please enter a valid http/https URL"),
-          backgroundColor: Colors.redAccent.withOpacity(0.8),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (text.length > 50) {
+        provider.processText(text);
+      } else {
+        _showError("Text is too short to summarize (min 50 chars)");
+      }
     }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent.withOpacity(0.8),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -81,19 +107,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Animated Background Blobs (The "Brain" Glow)
+          // Background Blobs
           Positioned(
-            top: -100,
-            right: -100,
+            top: -100, right: -100,
             child: _GlowBlob(color: const Color(0xFF6366F1).withOpacity(0.2)),
           ),
           Positioned(
-            bottom: -100,
-            left: -100,
+            bottom: -100, left: -100,
             child: _GlowBlob(color: const Color(0xFFA855F7).withOpacity(0.2)),
           ),
 
-          // 2. Main Content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -117,7 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Logo
         Icon(Icons.auto_awesome_mosaic_rounded, size: 64, color: Colors.white.withOpacity(0.9)),
         const SizedBox(height: 24),
         Text("Briefly AI", style: Theme.of(context).textTheme.displayMedium),
@@ -128,17 +150,51 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 40),
 
-        // Glass Input Field
+        // MODE TOGGLE SWITCH
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ModeButton(
+                label: "Link", 
+                icon: Icons.link, 
+                isActive: _isLinkMode, 
+                onTap: () => setState(() => _isLinkMode = true),
+              ),
+              _ModeButton(
+                label: "Text", 
+                icon: Icons.text_fields, 
+                isActive: !_isLinkMode, 
+                onTap: () => setState(() => _isLinkMode = false),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // GLASS INPUT FIELD
         _GlassContainer(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
             child: TextField(
-              controller: _urlController,
+              controller: _inputController,
               style: const TextStyle(color: Colors.white),
+              maxLines: _isLinkMode ? 1 : 6, // Multi-line for text mode
+              minLines: _isLinkMode ? 1 : 3,
+              keyboardType: _isLinkMode ? TextInputType.url : TextInputType.multiline,
+              textInputAction: _isLinkMode ? TextInputAction.done : TextInputAction.newline,
               decoration: InputDecoration(
-                icon: const Icon(Icons.link, color: Colors.white54),
+                icon: Icon(
+                  _isLinkMode ? Icons.link : Icons.description_outlined, 
+                  color: Colors.white54
+                ),
                 border: InputBorder.none,
-                hintText: "Paste URL here...",
+                hintText: _isLinkMode ? "Paste URL here..." : "Paste article text here...",
                 hintStyle: const TextStyle(color: Colors.white24),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.paste, color: Colors.white54),
@@ -146,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final data = await Clipboard.getData(Clipboard.kTextPlain);
                     if (data?.text != null) {
                       setState(() {
-                        _urlController.text = data!.text!;
+                        _inputController.text = data!.text!;
                       });
                     }
                   },
@@ -157,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 20),
 
-        // Action Button
+        // ACTION BUTTON
         SizedBox(
           width: double.infinity,
           height: 56,
@@ -175,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
         
         const SizedBox(height: 60),
 
-        // PRIVACY BADGE / GEMMA INFO
+        // PRIVACY BADGE
         _GlassContainer(
           color: Colors.green.withOpacity(0.05),
           borderColor: Colors.green.withOpacity(0.2),
@@ -197,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "Powered by Gemma-3 270M Parameters local model. No data leaves this device.",
+                        "Powered by Gemma-3 local model. No data leaves this device.",
                         style: GoogleFonts.inter(fontSize: 12, color: Colors.white60),
                       ),
                     ],
@@ -249,7 +305,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- Helper Widgets for Glassmorphism ---
+// --- Helper Widgets ---
+
+class _ModeButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _ModeButton({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF6366F1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isActive ? Colors.white : Colors.white54),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                color: isActive ? Colors.white : Colors.white54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _GlassContainer extends StatelessWidget {
   final Widget child;
@@ -284,8 +382,7 @@ class _GlowBlob extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
-      height: 300,
+      width: 300, height: 300,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: color,
