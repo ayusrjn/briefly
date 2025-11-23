@@ -46,6 +46,10 @@ Briefly uses a service-oriented architecture focused on performance and predicta
 5. Rendering: parsed markdown is displayed in a summary card; TTS is available.
 
 ---
+## Inference Engine
+
+I have used Cactus SDK to run the language model on the mobile. Visit them here [Cactus](https://cactuscompute.com/)
+Cactus Github Repo [Cactus SDK](https://github.com/cactus-compute/cactus)
 
 ## Installation
 
